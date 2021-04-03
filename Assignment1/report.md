@@ -80,7 +80,11 @@ The code of `io_bound.c`:
 void io_bound_function(int size)
 {
     for (int i = 0; i < size * size; ++i)
-        printf("Call IO bound function\n");
+    {
+        FILE* file = fopen("./tmp.txt", "w");
+        fprintf(file, "Call IO bound function");
+        fclose(file);
+    }
 }
 ```
 
@@ -120,11 +124,31 @@ $ gcc cpu_bound.c io_bound.c main.c -o io_bound_prog
 $ gcc -DCPU cpu_bound.c io_bound.c main.c -o cpu_bound_prog
 ```
 
+To run these two program only on one CPU core and observe:
+
+```sh
+$ taskset -c 0 ./cpu_bound_prog &
+$ taskset -c 1 ./io_bound_prog &
+$ top
+```
+
 #### Result
 
-The result is shown below
+The screen shot is shown below
 
-[A screen shot]
+![cpu_only](./assets/cpu_only.png)
+
+<center><i> Picture above: CPU bound program only </i></center>
+
+![io_only](./assets/io_only.png)
+
+<center><i> Picture workload workload above: IO bound program only </i></center>
+
+![cpuio](./assets/cpuio.png)
+
+<center><i> Picture above: CPU bound program & IO bound program together</i></center>
+
+As is shown above, when we run CPU bound program only, CPU utilization can arrive at 100%(single core). But for a IO bound program, CPU utilization can only arrive at about 70%. (because of the IO interrupts). When we run two programes together, the CPU utilization can be over 100%, because cpu bound program can run when handling IO interupts.
 
 ### Task 2
 
@@ -161,6 +185,10 @@ else
 }
 ```
 
+The output is:
+
+![output](./assets/Task2.png)
+
 ### Task 3
 
 > Description: Compile and run the program code for asgn1.c and record your observations. Perform the modification mentioned and answer the questions that follow.
@@ -194,7 +222,21 @@ if( pid == 0 ){
 
 #### Part b: The difference of outputs with different ITR
 
-【Required to be run in Ubuntu】
+With a low `ITR` (`ITR=1` in the screen shot below) the parent process will print all the `Parent:xx` first and then comes the child process.
+
+![](./assets/T3-itr1.png)
+
+With a median `ITR` (`ITR=1000` in the screen shot below) the parent process will print most of the `Parent:xx` first and then comes the child process. But several lines interlace to each other.
+
+![](./assets/T3-itr1000.png)
+
+With a high `ITR` (`ITR=100000` in the screen shot below) the parent process's `Parent:xx` and child process's `Child:yy` interlace to each other exactly.
+
+![](./assets/T3-origin.png)
+
+The analysis for this phenomenon can be explained by the picture below:
+
+![](./assets/t3_graph.png)
 
 #### Part c: Modification
 
@@ -269,6 +311,10 @@ int main()
     return 0;
 }
 ```
+
+The output of the program is:
+
+![T4](./assets/T4.png)
 
 ### Task 5
 
@@ -367,21 +413,59 @@ int main(int argc, char** argv)
 }
 ```
 
+The output of the program is:
+
+![](./assets/T5.png)
+
+## Summary
+
+In this lab, we can draw the following conclusions:
+
+Firstly, the time to create a child process is relatively high: For example, in task 3, the delay of creating a process can be high enough to make the output become different.
 
 
-> (1) 基本信息：完成人姓名、学号、报告日期
->
-> (2) 实验内容
->
-> (3) 实验目的
->
-> (4) 设计思路和流程图
->
-> (5) 主要数据结构及其说明
->
-> (6) 源程序并附上注释（关键部分）
->
-> (7) 程序运行结果及分析
->
-> (8) 实验体会：实验中遇到的问题及解决过程、实验中产生的错误及原因分析、实验的体会及收获、对做好今后实验提出建设性建议等。
+Secondly, Child process cannot share one file stream with each other by simply `fork()` from the parent.
 
+In task 4, I meant not to use `fseek` in the program. In that case, I didn't get my desired output.
+
+Source code:
+
+```c
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/wait.h>
+int main()
+{
+    pid_t pid[4];
+    FILE* file = fopen("./file.txt", "r");
+    for (int i = 0; i < 4; ++i)
+    {
+        pid[i] = fork();
+        if (pid[i] == 0){
+            /* child process */
+            
+            char s[32];
+            // fseek(file, (long) i * 24L, SEEK_SET);
+            fgets(s, 32, file);
+            fprintf(stdout,"%s", s);
+            return 0;
+        }
+    }
+    for (int i = 0; i < 4; ++i)
+        waitpid(pid[i], NULL, 0);
+    fclose(file);
+    return 0;
+}
+```
+
+Output:
+
+```sh
+Child 1 reads this line
+��;�Child 2 reads this line
+��;�
+```
+
+Opps, in this case, some sharing variables will be in chaos.
+
+Thirdly, by using command `man xxxx` there is always an complete, accurate, and detailed manual for me to read, which is of great help to this lab and for the following study.
