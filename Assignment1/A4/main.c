@@ -3,74 +3,24 @@
 #include <sys/wait.h>
 int main()
 {
-    // open the required file
-    pid_t pid1 = fork();
-
-    if (pid1)
+    pid_t pid[4];
+    for (int i = 0; i < 4; ++i)
     {
-        /* Parent -> fork 3 more*/
-        pid_t pid2 = fork();
-        if (pid2)
-        {
-            /* Parent -> fort 2 more */
-            pid_t pid3 = fork();
-            if (pid3)
-            {
-                /* Parent -> fork one*/
-                pid_t pid4 = fork();
-                if (pid4)
-                {
-                    /* Parent -> wait for 1234 */
-                    waitpid(pid1, NULL, 0);
-                    waitpid(pid2, NULL, 0);
-                    waitpid(pid3, NULL, 0);
-                    waitpid(pid4, NULL, 0);
-                }
-                else
-                {
-                    char str[32];
-                    FILE *file = fopen("file.txt", "r");
-                    fgets(str, 32, file);
-                    fgets(str, 32, file);
-                    fgets(str, 32, file);
-                    fgets(str, 32, file);
-                    printf("%s\n", str);
-                    fclose(file);
-                }
-            }
-            else
-            {
-                /* Child 3 */
-                char str[32];
-                FILE *file = fopen("file.txt", "r");
-                fgets(str, 32, file);
-                fgets(str, 32, file);
-                fgets(str, 32, file);
-                printf("%s\n", str);
-                fclose(file);
-            }
-        }
-        else
-        {
-            /* Child 2*/
-            char str[32];
-            FILE *file = fopen("file.txt", "r");
-            fgets(str, 32, file);
-            fgets(str, 32, file);
-            printf("%s\n", str);
+        pid[i] = fork();
+        if (pid[i] == 0){
+            /* child process */
+            FILE* file = fopen("./file.txt", "r");
+            
+            char s[32];
+            fseek(file, (long) i * 24L, SEEK_SET);
+            fgets(s, 32, file);
+            
+            fprintf(stdout,"%s", s);
             fclose(file);
+            return 0;
         }
     }
-    else
-    {
-        /* Child 1: read first line. */
-        FILE *file = fopen("file.txt", "r");
-        char str[32];
-        fgets(str, 32, file);
-
-        printf("%s\n", str);
-        fclose(file);
-    }
-
+    for (int i = 0; i < 4; ++i)
+        waitpid(pid[i], NULL, 0);
     return 0;
 }

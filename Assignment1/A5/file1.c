@@ -22,7 +22,8 @@ int main(int argc, char** argv)
 
     } else {
         /* Child */
-        execvp("./file2", argv + 1);
+        
+        execlp("./file2", "./file2", argv[1], argv[2], NULL);
     }
     return 0;
 }

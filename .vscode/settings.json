@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.Linux_Intel64": "makefile",
+        "*.jmd": "juliamarkdown",
+        "stdio.h": "c"
+    }
+}
