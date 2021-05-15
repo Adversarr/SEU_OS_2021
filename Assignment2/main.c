@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <sched.h>
+#define TIME_MS(t) ((float) t.tv_sec * 1000.f + (float) t.tv_nsec / 1e6f)
 
 #define NDEBUG
 
@@ -98,7 +99,15 @@ int main(int argc, char **argv)
 
     int m_A, m_B, n_A, n_B;
     float *A, *B, *C;
-    time_t start = time(NULL), end;
+    float start,
+            mm_start,
+            end;
+    struct timespec t;
+    clockid_t cid;
+    pthread_getcpuclockid(pthread_self(), &cid);
+    clock_gettime(cid, &t);
+    start = TIME_MS(t);
+    
 #ifndef NDEBUG
     printf("[Info] I wanna read A from %s and B from %s...\n", argv[2], argv[4]);
 #endif
@@ -119,19 +128,22 @@ int main(int argc, char **argv)
     C = (float *)malloc(sizeof(float) * n_C * m_C);
 
     
-    
+
 
     struct mm_info *t_info = malloc(sizeof(struct mm_info) * nthread);
     int rows_each_thread = n_A / nthread;
     pthread_t *tid = malloc(sizeof(pthread_t) * nthread);
-
+    pthread_getcpuclockid(pthread_self(), &cid);
+    clock_gettime(cid, &t);
+    mm_start = TIME_MS(t);
+    printf("[Info] Done IO in %lf ms\n", (((double) (mm_start - start))));
     for (int it = 0; it < nthread; ++it)
     {
-        cpu_set_t cpu;
-        CPU_ZERO(&cpu);
+//        cpu_set_t cpu;
+//        CPU_ZERO(&cpu);
         int start = rows_each_thread * it,
             end = (it != (nthread - 1)) ? (rows_each_thread * (it + 1)) : n_A;
-        CPU_SET(it % 8, &cpu);
+//        CPU_SET(it % 8, &cpu);
         t_info[it].A = A + start * m_A;
         t_info[it].B = B;
         t_info[it].n = end - start;
@@ -142,7 +154,7 @@ int main(int argc, char **argv)
         printf("n, m, k = %d, %d, %d\n", t_info[it].n, t_info[it].m, t_info[it].k);
 #endif
         pthread_create(tid + it, NULL, mm, t_info + it);
-        pthread_setaffinity_np(tid[it], sizeof(cpu_set_t), &cpu);
+//        pthread_setaffinity_np(tid[it], sizeof(cpu_set_t), &cpu);
     }
 
     for (int it = 0; it < nthread; ++it){
@@ -150,8 +162,11 @@ int main(int argc, char **argv)
     }
     write_matrix(C, &m_C, &n_C, "result.txt");
     
-    end = time(NULL);
-    printf("Done in %lf s...\n", difftime(end, start));
+    pthread_getcpuclockid(pthread_self(), &cid);
+    clock_gettime(cid, &t);
+    end = TIME_MS(t);
+    printf("[Info] Done MM in %lf ms...\n", (((double) (end - mm_start))));
+    printf("[Info] Done in %lf s...\n", ((double) (end - start)));
     free(A);
     A = NULL;
     free(B);
