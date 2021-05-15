@@ -104,8 +104,8 @@ int main(int argc, char **argv)
             end;
     struct timespec t;
     clockid_t cid;
-    pthread_getcpuclockid(pthread_self(), &cid);
-    clock_gettime(cid, &t);
+//    pthread_getcpuclockid(pthread_self(), &cid);
+    clock_gettime(CLOCK_MONOTONIC, &t);
     start = TIME_MS(t);
     
 #ifndef NDEBUG
@@ -133,17 +133,17 @@ int main(int argc, char **argv)
     struct mm_info *t_info = malloc(sizeof(struct mm_info) * nthread);
     int rows_each_thread = n_A / nthread;
     pthread_t *tid = malloc(sizeof(pthread_t) * nthread);
-    pthread_getcpuclockid(pthread_self(), &cid);
-    clock_gettime(cid, &t);
+//    pthread_getcpuclockid(pthread_self(), &cid);
+    clock_gettime(CLOCK_MONOTONIC, &t);
     mm_start = TIME_MS(t);
     printf("[Info] Done IO in %lf ms\n", (((double) (mm_start - start))));
     for (int it = 0; it < nthread; ++it)
     {
-//        cpu_set_t cpu;
-//        CPU_ZERO(&cpu);
+        cpu_set_t cpu;
+        CPU_ZERO(&cpu);
         int start = rows_each_thread * it,
             end = (it != (nthread - 1)) ? (rows_each_thread * (it + 1)) : n_A;
-//        CPU_SET(it % 8, &cpu);
+        CPU_SET(it % 8, &cpu);
         t_info[it].A = A + start * m_A;
         t_info[it].B = B;
         t_info[it].n = end - start;
@@ -154,19 +154,24 @@ int main(int argc, char **argv)
         printf("n, m, k = %d, %d, %d\n", t_info[it].n, t_info[it].m, t_info[it].k);
 #endif
         pthread_create(tid + it, NULL, mm, t_info + it);
-//        pthread_setaffinity_np(tid[it], sizeof(cpu_set_t), &cpu);
+        pthread_setaffinity_np(tid[it], sizeof(cpu_set_t), &cpu);
     }
 
     for (int it = 0; it < nthread; ++it){
         pthread_join(tid[it], NULL);
     }
-    write_matrix(C, &m_C, &n_C, "result.txt");
-    
-    pthread_getcpuclockid(pthread_self(), &cid);
-    clock_gettime(cid, &t);
+//    pthread_getcpuclockid(pthread_self(), &cid);
+    clock_gettime(CLOCK_MONOTONIC, &t);
     end = TIME_MS(t);
     printf("[Info] Done MM in %lf ms...\n", (((double) (end - mm_start))));
-    printf("[Info] Done in %lf s...\n", ((double) (end - start)));
+ 
+    write_matrix(C, &m_C, &n_C, "result.txt");
+    pthread_getcpuclockid(pthread_self(), &cid);
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    end = TIME_MS(t);
+    printf("[Info] Done in %lf ms...\n", ((double) (end - start)));
+ 
+    
     free(A);
     A = NULL;
     free(B);

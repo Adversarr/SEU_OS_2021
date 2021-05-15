@@ -1,5 +1,5 @@
 gcc main.c -O2 -lpthread -pthread -o mm
-for size in 16 128 1024 2048 4096 8192
+for size in 10 100 1000 2000 4000 8000
 do
     echo "##########################" $size "##########################"
 
@@ -9,7 +9,7 @@ do
     do
         echo "mm -a Amat$size.txt -b Bmat$size.txt -t $nt"
 
-        time ./mm -a Amat$size.txt -b Bmat$size.txt -t $nt
+        time -p ./mm -a Amat$size.txt -b Bmat$size.txt -t $nt
     done
 done
 echo "[DONE.]"
