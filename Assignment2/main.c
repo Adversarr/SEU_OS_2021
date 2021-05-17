@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <sched.h>
-#define TIME_MS(t) ((float) t.tv_sec * 1000.f + (float) t.tv_nsec / 1e6f)
+#define TIME_MS(t) (((float) t.tv_sec) * 1000.f + ((float) t.tv_nsec) / 1e6f)
 
 #define NDEBUG
 
@@ -36,7 +36,6 @@ void *mm(void *info)
     printf("\tMat C: address = %p\n", C);
     printf("\tn, m, k = %d, %d, %d\n", n, m, k);
 #endif
-    // clear
     for (int i = 0; i < n * k; ++i)
         C[i] = 0.0f;
 
@@ -102,9 +101,8 @@ int main(int argc, char **argv)
     float start,
             mm_start,
             end;
+
     struct timespec t;
-    clockid_t cid;
-//    pthread_getcpuclockid(pthread_self(), &cid);
     clock_gettime(CLOCK_MONOTONIC, &t);
     start = TIME_MS(t);
     
@@ -117,6 +115,7 @@ int main(int argc, char **argv)
 #ifndef NDEBUG
     printf("[Info] I got mat A <at %p> and mat B <at %p>\n", A, B);
 #endif
+
     int nthread = atoi(argv[6]);
     if (m_A != n_B)
     {
@@ -128,12 +127,11 @@ int main(int argc, char **argv)
     C = (float *)malloc(sizeof(float) * n_C * m_C);
 
     
-
+    int rows_each_thread = n_A / nthread;
+    int extra_rows_to_assign =  nthread - n_A + rows_each_thread * nthread;
 
     struct mm_info *t_info = malloc(sizeof(struct mm_info) * nthread);
-    int rows_each_thread = n_A / nthread;
     pthread_t *tid = malloc(sizeof(pthread_t) * nthread);
-//    pthread_getcpuclockid(pthread_self(), &cid);
     clock_gettime(CLOCK_MONOTONIC, &t);
     mm_start = TIME_MS(t);
     printf("[Info] Done IO in %lf ms\n", (((double) (mm_start - start))));
@@ -141,8 +139,13 @@ int main(int argc, char **argv)
     {
         cpu_set_t cpu;
         CPU_ZERO(&cpu);
-        int start = rows_each_thread * it,
-            end = (it != (nthread - 1)) ? (rows_each_thread * (it + 1)) : n_A;
+        int start = rows_each_thread * it;
+        if (it >= extra_rows_to_assign)
+            start += it - extra_rows_to_assign;
+        int end = start + rows_each_thread;
+        if (it >= extra_rows_to_assign)
+            end += 1;
+        if (end > n_A) end = n_A;
         CPU_SET(it % 8, &cpu);
         t_info[it].A = A + start * m_A;
         t_info[it].B = B;
@@ -160,27 +163,21 @@ int main(int argc, char **argv)
     for (int it = 0; it < nthread; ++it){
         pthread_join(tid[it], NULL);
     }
-//    pthread_getcpuclockid(pthread_self(), &cid);
     clock_gettime(CLOCK_MONOTONIC, &t);
     end = TIME_MS(t);
     printf("[Info] Done MM in %lf ms...\n", (((double) (end - mm_start))));
  
     write_matrix(C, &m_C, &n_C, "result.txt");
-    pthread_getcpuclockid(pthread_self(), &cid);
+
     clock_gettime(CLOCK_MONOTONIC, &t);
     end = TIME_MS(t);
     printf("[Info] Done in %lf ms...\n", ((double) (end - start)));
  
     
-    free(A);
-    A = NULL;
-    free(B);
-    B = NULL;
-    free(C);
-    C = NULL;
-    free(tid);
-    tid = NULL;
-    free(t_info);
-    t_info = NULL;
+    free(A); A = NULL;
+    free(B); B = NULL;
+    free(C); C = NULL;
+    free(tid); tid = NULL;
+    free(t_info); t_info = NULL;
     return 0;
 }
