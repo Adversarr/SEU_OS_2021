@@ -2,7 +2,8 @@
     "files.associations": {
         "*.Linux_Intel64": "makefile",
         "*.jmd": "juliamarkdown",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "stdlib.h": "c"
     },
     "python.pythonPath": "/home/jerry/anaconda3/bin/python"
 }
